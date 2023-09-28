@@ -8,5 +8,5 @@ internal sealed class AppOptions
     public const string PreReleaseBump = "pre";
 
     public string BumpPosition { get; set; } = "";
-    public bool IsPreReleaseBump => BumpPosition == PreReleaseBump;
+    public bool IsPreReleaseBump => BumpPosition.ToLower() == PreReleaseBump;
 };

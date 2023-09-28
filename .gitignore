@@ -3,3 +3,4 @@ obj
 bin
 publish/
 *.user
+Properties/launchSettings.json
