@@ -22,8 +22,14 @@ internal sealed class MainService : IHostedService
 
     public async Task StartAsync(CancellationToken cancellationToken)
     {
-        Run();
-        _lifetime.StopApplication();
+        try
+        {
+            Run();
+        }
+        finally
+        {
+            _lifetime.StopApplication();
+        }
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
@@ -44,7 +50,7 @@ internal sealed class MainService : IHostedService
 
         if (bumped is null)
         {
-            WriteHelp();
+            Console.Error.WriteLine(GetHelp());
             return;
         }
 
@@ -65,13 +71,17 @@ internal sealed class MainService : IHostedService
             break;
 
         default:
-            WriteHelp();
+            Console.Error.WriteLine(GetHelp());
             break;
         }
     }
 
-    private void WriteHelp()
+    private string GetHelp()
     {
-        Console.WriteLine("SemVerBumper.exe -b|--BumpPosition (major|minor|patch|pre) -m|--Mode (version|ini)");
+        var bumpOptions = $"{AppOptions.MajorBump}|{AppOptions.MinorBump}|{AppOptions.PatchBump}|{AppOptions.PreReleaseBump}";
+        var modeOptions = $"{AppOptions.SemVerMode}|{AppOptions.IniMode}";
+        return $"""
+            Usage: SemVerBumper.exe -b|--BumpPosition {bumpOptions} -m|--Mode {modeOptions}
+            """  ;
     }
 }
