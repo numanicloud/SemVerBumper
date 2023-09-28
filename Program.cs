@@ -9,7 +9,8 @@ await Host.CreateDefaultBuilder()
         configurationBuilder.AddIniFile("version.ini", optional: false, reloadOnChange: false);
         configurationBuilder.AddCommandLine(args, new Dictionary<string, string>()
         {
-            { "-b", nameof(AppOptions.BumpPosition) }
+            { "-b", nameof(AppOptions.BumpPosition) },
+            { "-m", nameof(AppOptions.Mode) }
         });
     })
     .ConfigureServices((context, collection) =>

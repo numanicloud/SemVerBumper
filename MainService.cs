@@ -1,4 +1,5 @@
-﻿using Microsoft.Extensions.Hosting;
+﻿#pragma warning disable CS1998 // 非同期メソッドは、'await' 演算子がないため、同期的に実行されます
+using Microsoft.Extensions.Hosting;
 using Microsoft.Extensions.Options;
 
 namespace SemVerBumper;
@@ -19,7 +20,18 @@ internal sealed class MainService : IHostedService
         _config = options.Value;
     }
 
-    public Task StartAsync(CancellationToken cancellationToken)
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        Run();
+        _lifetime.StopApplication();
+    }
+
+    public Task StopAsync(CancellationToken cancellationToken)
+    {
+        return Task.CompletedTask;
+    }
+
+    private void Run()
     {
         var bumped = _config.BumpPosition.ToLower() switch
         {
@@ -27,17 +39,39 @@ internal sealed class MainService : IHostedService
             AppOptions.MinorBump => _versionSettings.BumpMinor(),
             AppOptions.PatchBump => _versionSettings.BumpPatch(),
             AppOptions.PreReleaseBump => _versionSettings.BumpPreRelease(),
-            _ => throw new Exception()
+            _ => null
         };
 
-        Console.WriteLine(bumped.GetText(_config.IsPreReleaseBump));
+        if (bumped is null)
+        {
+            WriteHelp();
+            return;
+        }
 
-        _lifetime.StopApplication();
-        return Task.CompletedTask;
+        switch (_config.Mode)
+        {
+        case AppOptions.SemVerMode:
+            Console.WriteLine(bumped.GetText(_config.IsPreReleaseBump));
+            break;
+
+        case AppOptions.IniMode:
+            Console.WriteLine($"""
+                    { nameof(VersionSettings.Major)} ={ bumped.Major} 
+                    { nameof(VersionSettings.Minor)} ={ bumped.Minor} 
+                    { nameof(VersionSettings.Patch)} ={ bumped.Patch} 
+                    { nameof(VersionSettings.PreRelease)} ={ bumped.PreRelease} 
+                    { nameof(VersionSettings.Suffix)} ={ bumped.Suffix} 
+                    """ );
+            break;
+
+        default:
+            WriteHelp();
+            break;
+        }
     }
 
-    public Task StopAsync(CancellationToken cancellationToken)
+    private void WriteHelp()
     {
-        return Task.CompletedTask;
+        Console.WriteLine("SemVerBumper.exe -b|--BumpPosition (major|minor|patch|pre) -m|--Mode (version|ini)");
     }
 }
