@@ -1,0 +1,1 @@
+dotnet publish -p:PublishProfile=FolderProfile -p:VersionPrefix=1.0.0
