@@ -1,25 +1,64 @@
-﻿using Microsoft.Extensions.Hosting;
-using Microsoft.Extensions.Configuration;
-using Microsoft.Extensions.DependencyInjection;
+﻿using Newtonsoft.Json;
 using SemVerBumper;
 
-await Host.CreateDefaultBuilder()
-    .ConfigureAppConfiguration(configurationBuilder =>
+ConsoleApp.Run<Commands>(args);
+
+public class Commands : ConsoleAppBase
+{
+    public const string MajorBump = "major";
+    public const string MinorBump = "minor";
+    public const string PatchBump = "patch";
+    public const string PreReleaseBump = "pre";
+
+    [RootCommand]
+    // ReSharper disable once UnusedMember.Global
+    public async Task<int> RunAsync(
+        [Option("v", "version file path.")]string versionFile,
+        [Option("b", "SemVer position to bump. (major|minor|patch|pre)")]string bumpPosition)
     {
-        configurationBuilder.AddIniFile("version.ini", optional: false, reloadOnChange: false);
-        configurationBuilder.AddCommandLine(args, new Dictionary<string, string>()
+        bumpPosition = bumpPosition.ToLower();
+
+        var version = await LoadVersionAsync(versionFile);
+        if (version is null)
         {
-            { "-b", nameof(AppOptions.BumpPosition) },
-            { "-m", nameof(AppOptions.Mode) }
-        });
-    })
-    .ConfigureServices((context, collection) =>
+            await Console.Error.WriteLineAsync("Invalid version file.");
+            return 1;
+        }
+
+        var bumped = Bump(bumpPosition, version);
+        if (bumped is null)
+        {
+            await Console.Error.WriteLineAsync("Invalid bumpPosition.");
+            return 2;
+        }
+
+        Console.WriteLine(bumped.GetText(bumpPosition == PreReleaseBump));
+        await SaveVersion(versionFile, bumped);
+        return 0;
+    }
+
+    private static VersionSettings? Bump(string bumpPosition, VersionSettings version)
     {
-        collection.AddHostedService<MainService>();
-        collection.Configure<VersionSettings>(context.Configuration);
-        collection.Configure<AppOptions>(context.Configuration);
-    })
-    .RunConsoleAsync(options =>
+        return bumpPosition switch
+        {
+            MajorBump => version.BumpMajor(),
+            MinorBump => version.BumpMinor(),
+            PatchBump => version.BumpPatch(),
+            PreReleaseBump => version.BumpPreRelease(),
+            _ => null
+        };
+    }
+
+    private static async Task SaveVersion(string versionFile, VersionSettings bumped)
     {
-        options.SuppressStatusMessages = true;
-    });
+        await using var writer = new StreamWriter(versionFile);
+        var json = JsonConvert.SerializeObject(bumped, Formatting.Indented);
+        await writer.WriteLineAsync(json);
+    }
+
+    private static async Task<VersionSettings?> LoadVersionAsync(string versionFile)
+    {
+        using var reader = new StreamReader(versionFile);
+        return JsonConvert.DeserializeObject<VersionSettings>(await reader.ReadToEndAsync());
+    }
+}
